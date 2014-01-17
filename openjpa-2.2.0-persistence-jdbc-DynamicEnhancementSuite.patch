@@ -1,0 +1,11 @@
+--- openjpa-persistence-jdbc/src/test/java/org/apache/openjpa/persistence/enhance/DynamicEnhancementSuite.java	2012-02-16 09:33:52.000000000 +0100
++++ openjpa-persistence-jdbc/src/test/java/org/apache/openjpa/persistence/enhance/DynamicEnhancementSuite.java-gil	2012-04-06 15:20:03.131215012 +0200
+@@ -125,7 +125,7 @@
+         // with the dynamic enhaner.
+         String test = System.getProperty("dynamicTest");
+         if (test != null) {
+-            suite.addTestSuite(Class.forName(test));
++            // suite.addTestSuite(Class.forName(test));
+         } else {
+ 
+             // Subclassing failing tests
