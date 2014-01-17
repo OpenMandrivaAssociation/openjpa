@@ -123,6 +123,7 @@ find . -name "*.jar" -delete
     <version>1.0.1.Final</version>
   </dependency>"
 %pom_remove_dep org.apache.bval:org.apache.bval.bundle
+%if 0%{?fedora}
 %pom_xpath_inject "pom:project/pom:dependencyManagement/pom:dependencies" "
   <dependency>
     <groupId>org.apache.bval</groupId>
@@ -134,6 +135,14 @@ find . -name "*.jar" -delete
     <artifactId>bval-jsr303</artifactId>
     <version>0.5</version>
   </dependency>"
+%else
+%pom_xpath_inject "pom:project/pom:dependencyManagement/pom:dependencies" "
+  <dependency>
+    <groupId>org.apache.bval</groupId>
+    <artifactId>bval-core</artifactId>
+    <version>0.5</version>
+  </dependency>"
+%endif
 
 %pom_remove_dep com.ibm.websphere:websphere_uow_api openjpa-kernel
 # require non free com.ibm.websphere websphere_uow_api 0.0.1
@@ -178,6 +187,7 @@ done
   </dependency>" openjpa-slice
 
 %pom_remove_dep org.apache.bval:org.apache.bval.bundle openjpa-tools/openjpa-maven-plugin
+%if 0%{?fedora}
 %pom_xpath_inject "pom:project/pom:dependencies" "
   <dependency>
     <groupId>org.apache.bval</groupId>
@@ -189,6 +199,14 @@ done
     <artifactId>bval-jsr303</artifactId>
     <version>0.5</version>
   </dependency>" openjpa-tools/openjpa-maven-plugin
+%else
+%pom_xpath_inject "pom:project/pom:dependencies" "
+  <dependency>
+    <groupId>org.apache.bval</groupId>
+    <artifactId>bval-core</artifactId>
+    <version>0.5</version>
+  </dependency>" openjpa-tools/openjpa-maven-plugin
+%endif
   
 # remove testing profiles for unavailable drivers: 
 # db2jcc informix-driver jcc-driver jdbc-driver jdbc-oracle jtds sqljdbc
