@@ -4,7 +4,7 @@
 
 Name:          openjpa
 Version:       2.2.2
-Release:       5.0%{?dist}
+Release:       9.1
 Summary:       Java Persistence 2.0 API
 
 # For a breakdown of the licensing, see NOTICE file
@@ -13,8 +13,12 @@ Url:           http://openjpa.apache.org/
 Source0:       http://www.apache.org/dist/openjpa/%{version}/apache-%{name}-%{version}-source.zip
 # fix test failure
 Patch0:        %{name}-2.2.0-persistence-jdbc-DynamicEnhancementSuite.patch
+Patch1:        %{name}-2.2.0-remove-WASRegistryManagedRuntime.patch
+# Java 8 problems, see:
+# https://issues.apache.org/jira/browse/OPENJPA-2386
+# https://issues.apache.org/jira/browse/OPENJPA-2441
+Patch2:        %{name}-2.2.2-java8.patch
 
-BuildRequires: java-devel
 %if 0%{?fedora}
 %else
 BuildRequires: jmock
@@ -31,7 +35,10 @@ BuildRequires: maven-invoker-plugin
 BuildRequires: maven-plugin-plugin
 BuildRequires: maven-remote-resources-plugin
 BuildRequires: maven-site-plugin
-BuildRequires: maven-surefire-provider-junit4
+BuildRequires: maven-surefire-provider-junit
+BuildRequires: mvn(org.apache.maven.wagon:wagon-providers:pom:)
+BuildRequires: mvn(org.apache.maven.wagon:wagon-ssh)
+
 
 # maven-antrun-plugin deps
 BuildRequires: ant-contrib
@@ -52,11 +59,11 @@ BuildRequires: glassfish-jaxb
 BuildRequires: glassfish-jaxb-api
 BuildRequires: hibernate-jpa-2.0-api
 BuildRequires: hsqldb1
-BuildRequires: log4j
+BuildRequires: log4j12
 BuildRequires: mvn(org.apache.maven:maven-plugin-api)
 BuildRequires: mvn(org.apache.maven:maven-project)
 BuildRequires: mvn(org.codehaus.plexus:plexus-utils)
-BuildRequires: objectweb-asm
+BuildRequires: objectweb-asm3
 BuildRequires: plexus-utils
 BuildRequires: postgresql-jdbc
 BuildRequires: serp
@@ -74,6 +81,9 @@ BuildRequires: maven-plugin-testing-harness
 BuildRequires: mysql-connector-java
 BuildRequires: regexp
 BuildRequires: simple-jndi
+
+# used by openjpa-maven-plugin and openjpa-lib
+Requires: log4j12
 
 BuildArch:     noarch
 
@@ -104,12 +114,16 @@ find . -name "*.class" -delete
 find . -name "*.jar" -delete
 # openjpa-kernel/internal-repository/com/ibm/websphere/websphere_uow_api/0.0.1/websphere_uow_api-0.0.1.jar
 %patch0 -p0
+%patch1 -p1
+%patch2 -p1
 
 %pom_remove_plugin :docbkx-maven-plugin
 %pom_remove_plugin :maven-checkstyle-plugin
 %pom_remove_plugin :findbugs-maven-plugin
 %pom_remove_plugin :ianal-maven-plugin
 %pom_remove_plugin :taglist-maven-plugin
+
+%pom_remove_plugin :apache-rat-plugin
 
 %pom_xpath_remove "pom:project/pom:profiles/pom:profile[pom:id='ydoc-profile']"
 
@@ -147,7 +161,6 @@ find . -name "*.jar" -delete
 %pom_remove_dep com.ibm.websphere:websphere_uow_api openjpa-kernel
 # require non free com.ibm.websphere websphere_uow_api 0.0.1
 rm openjpa-kernel/src/main/java/org/apache/openjpa/ee/WASRegistryManagedRuntime.java
-rm openjpa-kernel/src/main/java/org/apache/openjpa/ee/AutomaticManagedRuntime.java
 
 for p in kernel persistence; do
 %pom_remove_dep org.osgi:org.osgi.core openjpa-${p}
@@ -249,6 +262,17 @@ sed -i 's|<hsqldb.version>1.8.0.10</hsqldb.version>|<hsqldb.version>1</hsqldb.ve
 #%%pom_remove_dep org.apache.maven:maven-project openjpa-tools/openjpa-maven-plugin
 #%%pom_add_dep org.apache.maven:maven-core openjpa-tools/openjpa-maven-plugin
 
+%pom_xpath_set "pom:project/pom:dependencies/pom:dependency[pom:groupId='asm']/pom:version" 3 %{name}-kernel
+
+# use proper log4j version
+%pom_xpath_set "pom:dependencyManagement/pom:dependencies/pom:dependency[pom:groupId='log4j']/pom:version" 1.2.17
+%pom_xpath_set "pom:dependencies/pom:dependency[pom:groupId='log4j']/pom:version" 1.2.17 %{name}-tools/%{name}-maven-plugin
+%pom_xpath_inject "pom:dependencies/pom:dependency[pom:groupId='log4j']" "<version>1.2.17</version>" %{name}-lib
+# use servlet-api 2.4
+sed -i 's|<groupId>javax.servlet</groupId>|<groupId>org.apache.tomcat</groupId>|' %{name}-jest/pom.xml
+sed -i 's|<artifactId>servlet-api</artifactId>|<artifactId>tomcat-servlet-api</artifactId>|' %{name}-jest/pom.xml
+sed -i 's|<version>2.4</version>|<version>7.0.47</version>|' %{name}-jest/pom.xml
+
 %build
 %mvn_package ":%{name}-tools" tools
 %mvn_package ":%{name}-maven-plugin" tools
@@ -262,7 +286,6 @@ sed -i 's|<hsqldb.version>1.8.0.10</hsqldb.version>|<hsqldb.version>1</hsqldb.ve
 %endif
   -DfailIfNoTests=false \
   -Dmaven.test.failure.ignore=true \
-  -Dmaven.local.depmap.file="%{_mavendepmapfragdir}/tomcat-tomcat-servlet-api" \
   process-resources
 
 %install

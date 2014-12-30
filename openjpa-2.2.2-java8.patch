@@ -1,0 +1,1088 @@
+diff -Nru apache-openjpa-2.2.2-source/openjpa-kernel/src/main/java/org/apache/openjpa/datacache/AbstractQueryCache.java apache-openjpa-2.2.2-source-gil/openjpa-kernel/src/main/java/org/apache/openjpa/datacache/AbstractQueryCache.java
+--- apache-openjpa-2.2.2-source/openjpa-kernel/src/main/java/org/apache/openjpa/datacache/AbstractQueryCache.java	2013-04-16 17:04:10.000000000 +0200
++++ apache-openjpa-2.2.2-source-gil/openjpa-kernel/src/main/java/org/apache/openjpa/datacache/AbstractQueryCache.java	2014-10-08 09:59:44.196345297 +0200
+@@ -40,9 +40,10 @@
+ import org.apache.openjpa.lib.log.Log;
+ import org.apache.openjpa.lib.util.J2DoPrivHelper;
+ import org.apache.openjpa.lib.util.Localizer;
++import org.apache.openjpa.lib.util.ReferenceMap;
+ import org.apache.openjpa.lib.util.concurrent.AbstractConcurrentEventManager;
++import org.apache.openjpa.lib.util.concurrent.ConcurrentReferenceHashMap;
+ import org.apache.openjpa.lib.util.concurrent.ConcurrentReferenceHashSet;
+-import org.apache.openjpa.lib.util.concurrent.SizedConcurrentHashMap;
+ import org.apache.openjpa.meta.ClassMetaData;
+ import org.apache.openjpa.meta.MetaDataRepository;
+ import org.apache.openjpa.util.Id;
+@@ -477,11 +478,25 @@
+         
+         private long[] astat = new long[ARRAY_SIZE];
+         private long[] stat  = new long[ARRAY_SIZE];
+-        private Map<T, long[]> stats  = new SizedConcurrentHashMap(FIXED_SIZE, LOAD_FACTOR, CONCURRENCY);
+-        private Map<T, long[]> astats = new SizedConcurrentHashMap(FIXED_SIZE, LOAD_FACTOR, CONCURRENCY);
++        private Map<T, long[]> stats;
++        private Map<T, long[]> astats;
+         private Date start = new Date();
+         private Date since = start;
+-        
++
++        public Default() {
++            initializeMaps();
++        }
++
++        private void initializeMaps() {
++            ConcurrentReferenceHashMap statsMap = new ConcurrentReferenceHashMap(ReferenceMap.HARD, ReferenceMap.HARD);
++            statsMap.setMaxSize(FIXED_SIZE);
++            stats = statsMap;
++
++            ConcurrentReferenceHashMap aStatsMap = new ConcurrentReferenceHashMap(ReferenceMap.HARD, ReferenceMap.HARD);
++            aStatsMap.setMaxSize(FIXED_SIZE);
++            astats = aStatsMap;
++        }
++
+         public Set<T> keys() {
+             return stats.keySet();
+         }
+@@ -549,8 +564,7 @@
+         public synchronized void clear() {
+            astat = new long[ARRAY_SIZE];
+            stat  = new long[ARRAY_SIZE];
+-           stats = new SizedConcurrentHashMap(FIXED_SIZE, LOAD_FACTOR, CONCURRENCY);
+-           astats = new SizedConcurrentHashMap(FIXED_SIZE, LOAD_FACTOR, CONCURRENCY);
++           initializeMaps();
+            start  = new Date();
+            since  = start;
+         }
+diff -Nru apache-openjpa-2.2.2-source/openjpa-kernel/src/main/java/org/apache/openjpa/kernel/QueryStatistics.java apache-openjpa-2.2.2-source-gil/openjpa-kernel/src/main/java/org/apache/openjpa/kernel/QueryStatistics.java
+--- apache-openjpa-2.2.2-source/openjpa-kernel/src/main/java/org/apache/openjpa/kernel/QueryStatistics.java	2013-04-16 17:04:10.000000000 +0200
++++ apache-openjpa-2.2.2-source-gil/openjpa-kernel/src/main/java/org/apache/openjpa/kernel/QueryStatistics.java	2014-10-08 09:51:59.157809777 +0200
+@@ -25,7 +25,8 @@
+ import java.util.Map;
+ import java.util.Set;
+ 
+-import org.apache.openjpa.lib.util.concurrent.SizedConcurrentHashMap;
++import org.apache.openjpa.lib.util.ReferenceMap;
++import org.apache.openjpa.lib.util.concurrent.ConcurrentReferenceHashMap;
+ 
+ /**
+  * Records query execution statistics.
+@@ -153,11 +154,25 @@
+         
+ 		private long[] astat = new long[ARRAY_SIZE];
+ 		private long[] stat  = new long[ARRAY_SIZE];
+-		private Map<T, long[]> stats  = new SizedConcurrentHashMap(FIXED_SIZE, LOAD_FACTOR, CONCURRENCY);
+-		private Map<T, long[]> astats = new SizedConcurrentHashMap(FIXED_SIZE, LOAD_FACTOR, CONCURRENCY);
++		private Map<T, long[]> stats;
++		private Map<T, long[]> astats;
+ 		private Date start = new Date();
+ 		private Date since = start;
+-		
++
++		public Default() {
++		    initializeMaps();
++		}
++
++		private void initializeMaps() {
++		    ConcurrentReferenceHashMap statsMap = new ConcurrentReferenceHashMap(ReferenceMap.HARD, ReferenceMap.HARD);
++		    statsMap.setMaxSize(FIXED_SIZE);
++		    stats = statsMap;
++
++		    ConcurrentReferenceHashMap aStatsMap = new ConcurrentReferenceHashMap(ReferenceMap.HARD, ReferenceMap.HARD);
++		    aStatsMap.setMaxSize(FIXED_SIZE);
++		    astats = aStatsMap;
++		}
++
+ 		public Set<T> keys() {
+ 		    return stats.keySet();
+ 		}
+@@ -216,8 +231,7 @@
+ 	    public synchronized void clear() {
+ 	       astat = new long[ARRAY_SIZE];
+ 	       stat  = new long[ARRAY_SIZE];
+-	       stats = new SizedConcurrentHashMap(FIXED_SIZE, LOAD_FACTOR, CONCURRENCY);
+-	       astats = new SizedConcurrentHashMap(FIXED_SIZE, LOAD_FACTOR, CONCURRENCY);
++	       initializeMaps();
+ 	       start  = new Date();
+ 	       since  = start;
+ 	    }
+diff -Nru apache-openjpa-2.2.2-source/openjpa-kernel/src/main/java/org/apache/openjpa/util/ProxyManagerImpl.java apache-openjpa-2.2.2-source-gil/openjpa-kernel/src/main/java/org/apache/openjpa/util/ProxyManagerImpl.java
+--- apache-openjpa-2.2.2-source/openjpa-kernel/src/main/java/org/apache/openjpa/util/ProxyManagerImpl.java	2013-04-16 17:04:10.000000000 +0200
++++ apache-openjpa-2.2.2-source-gil/openjpa-kernel/src/main/java/org/apache/openjpa/util/ProxyManagerImpl.java	2014-10-08 09:47:27.290191476 +0200
+@@ -56,8 +56,8 @@
+ import org.apache.openjpa.lib.util.J2DoPrivHelper;
+ import org.apache.openjpa.lib.util.Localizer;
+ import org.apache.openjpa.lib.util.Options;
+-import org.apache.openjpa.lib.util.concurrent.NullSafeConcurrentHashMap;
+ 
++import java.util.concurrent.ConcurrentHashMap;
+ import java.util.concurrent.ConcurrentMap;
+ 
+ import serp.bytecode.BCClass;
+@@ -95,7 +95,7 @@
+     }
+ 
+     private final Set _unproxyable = new HashSet();
+-    private final Map _proxies = new NullSafeConcurrentHashMap();
++    private final Map _proxies = new ConcurrentHashMap();
+     private boolean _trackChanges = true;
+     private boolean _assertType = false;
+     private boolean _delayedCollectionLoading = false;
+@@ -456,7 +456,7 @@
+ 
+         // we don't lock here; ok if two proxies get generated for same type
+         ProxyBean proxy = (ProxyBean) _proxies.get(type);
+-        if (proxy == null && !_proxies.containsKey(type)) {
++        if (proxy == null) {
+             ClassLoader l = GeneratedClasses.getMostDerivedLoader(type,
+                 ProxyBean.class);
+             Class pcls = loadBuildTimeProxy(type, l);
+@@ -474,7 +474,11 @@
+             if (pcls != null)
+                 proxy = (ProxyBean) instantiateProxy(pcls,
+                     findCopyConstructor(type), new Object[] {orig});
+-            _proxies.put(type, proxy);
++            if (proxy == null) {
++                _unproxyable.add(type.getName());
++            } else {
++                _proxies.put(type, proxy);
++            }
+         }
+         return proxy;
+     }
+diff -Nru apache-openjpa-2.2.2-source/openjpa-kernel/src/test/java/org/apache/openjpa/util/TestProxyManager.java apache-openjpa-2.2.2-source-gil/openjpa-kernel/src/test/java/org/apache/openjpa/util/TestProxyManager.java
+--- apache-openjpa-2.2.2-source/openjpa-kernel/src/test/java/org/apache/openjpa/util/TestProxyManager.java	2013-04-16 17:04:08.000000000 +0200
++++ apache-openjpa-2.2.2-source-gil/openjpa-kernel/src/test/java/org/apache/openjpa/util/TestProxyManager.java	2014-10-08 09:56:50.142261303 +0200
+@@ -800,6 +800,31 @@
+         assertNull(_mgr.newCustomProxy(orig,true));
+     }
+ 
++    public void testIsUnproxyable() {
++        CustomBean validBean = new CustomBean();
++        populate(validBean);
++        assertNotNull(_mgr.copyCustom(validBean));
++        assertNotNull(_mgr.newCustomProxy(validBean, true));
++        assertFalse(_mgr.isUnproxyable(CustomBean.class));
++        
++        NonproxyableBean bean1 = new NonproxyableBean(1);
++        populate(bean1);
++        
++        NonproxyableBean2 bean2 = new NonproxyableBean2();
++        populate(bean2);
++ 
++        assertFalse(_mgr.isUnproxyable(NonproxyableBean.class));
++        assertNull(_mgr.copyCustom(bean1));
++        assertTrue(_mgr.isUnproxyable(NonproxyableBean.class));
++        assertNull(_mgr.newCustomProxy(bean1, true));
++        assertTrue(_mgr.isUnproxyable(NonproxyableBean.class));
++        
++        assertFalse(_mgr.isUnproxyable(NonproxyableBean2.class));
++        assertNull(_mgr.newCustomProxy(bean2, true));
++        assertTrue(_mgr.isUnproxyable(NonproxyableBean2.class));
++        assertNull(_mgr.copyCustom(bean2));
++        assertTrue(_mgr.isUnproxyable(NonproxyableBean2.class));
++    }
+ 
+     /**
+      * Assert that the given beans are exactly the same.
+@@ -1031,6 +1056,13 @@
+     }
+ 
+     /**
++     * Used to non-proxyable custom bean handling.
++    */
++    public class NonproxyableBean2 extends CustomBean {
++        // class is not static
++    }
++
++    /**
+      * Used to test custom calendar handling.
+      */
+     public static class CustomCalendar
+diff -Nru apache-openjpa-2.2.2-source/openjpa-lib/src/main/java/org/apache/openjpa/lib/util/concurrent/NullSafeConcurrentHashMap.java apache-openjpa-2.2.2-source-gil/openjpa-lib/src/main/java/org/apache/openjpa/lib/util/concurrent/NullSafeConcurrentHashMap.java
+--- apache-openjpa-2.2.2-source/openjpa-lib/src/main/java/org/apache/openjpa/lib/util/concurrent/NullSafeConcurrentHashMap.java	2013-04-16 17:03:58.000000000 +0200
++++ apache-openjpa-2.2.2-source-gil/openjpa-lib/src/main/java/org/apache/openjpa/lib/util/concurrent/NullSafeConcurrentHashMap.java	1970-01-01 01:00:00.000000000 +0100
+@@ -1,416 +0,0 @@
+-/*
+- * Licensed to the Apache Software Foundation (ASF) under one
+- * or more contributor license agreements.  See the NOTICE file
+- * distributed with this work for additional information
+- * regarding copyright ownership.  The ASF licenses this file
+- * to you under the Apache License, Version 2.0 (the
+- * "License"); you may not use this file except in compliance
+- * with the License.  You may obtain a copy of the License at
+- *
+- * http://www.apache.org/licenses/LICENSE-2.0
+- *
+- * Unless required by applicable law or agreed to in writing,
+- * software distributed under the License is distributed on an
+- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+- * KIND, either express or implied.  See the License for the
+- * specific language governing permissions and limitations
+- * under the License.
+- */
+-package org.apache.openjpa.lib.util.concurrent;
+-
+-import java.util.concurrent.ConcurrentHashMap;
+-import java.util.Enumeration;
+-import java.util.Set;
+-import java.util.Collection;
+-import java.util.AbstractSet;
+-import java.util.Iterator;
+-import java.util.AbstractCollection;
+-import java.util.Random;
+-import java.util.HashSet;
+-import java.util.TreeSet;
+-
+-import org.apache.commons.collections.set.MapBackedSet;
+-
+-/**
+- * A subclass of {@link ConcurrentHashMap} that allows null keys and values.
+- * In exchange, it weakens the contract of {@link #putIfAbsent} and the other
+- * concurrent methods added in {@link #ConcurrentHashMap}.
+- *
+- * @since 1.1.0
+- */
+-public class NullSafeConcurrentHashMap extends ConcurrentHashMap {
+-
+-    private enum Markers {
+-        NULL,
+-        MAP_BACKED_SET_DUMMY_VAL
+-    }
+-
+-    // The second argument is used within MapBackedSet as the value for
+-    // all the key-val pairs that are put into the underlying Map. This
+-    // is required for our usage since ConcurrentHashMap does not allow
+-    // null values.
+-    private Set randomKeys = MapBackedSet.decorate(
+-        new ConcurrentHashMap(), Markers.MAP_BACKED_SET_DUMMY_VAL);
+-
+-    private Random random = new Random();
+-
+-    public NullSafeConcurrentHashMap(int size, float load,
+-        int concurrencyLevel) {
+-        super(size, load, concurrencyLevel);
+-    }
+-
+-    public NullSafeConcurrentHashMap() {
+-    }
+-
+-    /**
+-     * Returns internal representation for object.
+-     */
+-    private static Object maskNull(Object o) {
+-        return (o == null ? Markers.NULL : o);
+-    }
+-
+-    /**
+-     * Returns object represented by specified internal representation.
+-     */
+-    private static Object unmaskNull(Object o) {
+-        return (o == Markers.NULL ? null : o);
+-    }
+-
+-    public Entry removeRandom() {
+-        // this doesn't just use randomEntryIterator() because that iterator
+-        // has weaker concurrency guarantees than this method. In particular,
+-        // this method will continue to attempt to remove random entries even
+-        // as other threads remove the same entries, whereas the random
+-        // iterator may return values that have been removed.
+-
+-        for (Iterator iter = randomKeys.iterator(); iter.hasNext(); ) {
+-            // randomKeys contains null-masked data
+-            Object key = iter.next();
+-            if (key != null && randomKeys.remove(key)) {
+-                Object val = super.remove(key);
+-                if (val != null)
+-                    return new EntryImpl(unmaskNull(key), unmaskNull(val));
+-            }
+-        }
+-
+-        // if randomKeys is empty, fall back to non-random behavior.
+-        for (Iterator iter = super.keySet().iterator(); iter.hasNext(); ) {
+-            Object key = iter.next();
+-            if (key == null)
+-                continue;
+-            Object val = super.remove(key);
+-            if (val != null)
+-                return new EntryImpl(unmaskNull(key), unmaskNull(val));
+-        }
+-        return null;
+-    }
+-
+-    /**
+-     * The returned data structure should not be shared among multiple
+-     * threads.
+-     */
+-    public Iterator<Entry> randomEntryIterator() {
+-        return new Iterator<Entry>() {
+-
+-            Iterator randomIter = randomKeys.iterator();
+-            Iterator nonRandomIter = NullSafeConcurrentHashMap.super.keySet()
+-                .iterator();
+-
+-            Set returned = new HashSet();
+-            Entry next;
+-            boolean nextSet = false;
+-
+-            public boolean hasNext() {
+-                // we've set the next value and we haven't returned it yet
+-                if (nextSet)
+-                    return true;
+-
+-                // compute the next value. If the computation returns null,
+-                // return false. Else, store the next value and return true.
+-                Object nextKey;
+-                Object nextValue;
+-                if (randomIter.hasNext()) {
+-                    nextKey = randomIter.next();
+-                    nextValue = NullSafeConcurrentHashMap.super.get(nextKey);
+-                    if (nextValue != null) {
+-                        returned.add(nextKey);
+-                        next = new EntryImpl(unmaskNull(nextKey),
+-                            unmaskNull(nextValue));
+-                        nextSet = true;
+-                        return true;
+-                    }
+-                }
+-
+-                while (nonRandomIter.hasNext()) {
+-                    nextKey = nonRandomIter.next();
+-
+-                    if (returned.contains(nextKey))
+-                        continue;
+-
+-                    nextValue = NullSafeConcurrentHashMap.super.get(nextKey);
+-                    if (nextValue != null) {
+-                        returned.add(nextKey);
+-                        next = new EntryImpl(unmaskNull(nextKey),
+-                            unmaskNull(nextValue));
+-                        nextSet = true;
+-                        return true;
+-                    }
+-                }
+-                return false;
+-            }
+-
+-            public Entry next() {
+-                // hasNext() will initialize this.next
+-                if (!nextSet && !hasNext())
+-                    return null;
+-
+-                // if we get here, then we're about to return a next value
+-                nextSet = false;
+-                
+-                if (containsKey(next.getKey()))
+-                    return next;
+-
+-                // something has changed since the last iteration (presumably
+-                // due to multi-threaded access to the underlying data
+-                // structure); recurse
+-                return next();
+-            }
+-
+-            public void remove() {
+-                throw new UnsupportedOperationException();
+-            }
+-        };
+-    }
+-
+-    @Override
+-    public Object remove(Object key) {
+-        Object maskedKey = maskNull(key);
+-        Object val = unmaskNull(super.remove(maskedKey));
+-        randomKeys.remove(maskedKey);
+-        return val;
+-    }
+-
+-    @Override
+-    public boolean remove(Object key, Object value) {
+-        Object maskedKey = maskNull(key);
+-        boolean val = super.remove(maskedKey, maskNull(value));
+-        randomKeys.remove(maskedKey);
+-        return val;
+-    }
+-
+-    @Override
+-    public boolean replace(Object key, Object oldValue, Object newValue) {
+-        return super.replace(maskNull(key), maskNull(oldValue),
+-            maskNull(newValue));
+-    }
+-
+-    @Override
+-    public Object replace(Object key, Object value) {
+-        return unmaskNull(super.replace(maskNull(key), maskNull(value)));
+-    }
+-
+-    @Override
+-    public Object putIfAbsent(Object key, Object value) {
+-        Object maskedKey = maskNull(key);
+-        Object superVal = super.putIfAbsent(maskedKey, maskNull(value));
+-        addRandomKey(maskedKey);
+-        return unmaskNull(superVal);
+-    }
+-
+-    @Override
+-    public Object put(Object key, Object value) {
+-        Object maskedKey = maskNull(key);
+-        Object superVal = super.put(maskedKey, maskNull(value));
+-        addRandomKey(maskedKey);
+-        return unmaskNull(superVal);
+-    }
+-
+-    /**
+-     * Potentially adds <code>maskedKey</ccode> to the set of random keys
+-     * to be removed by {@link #removeRandom()}.
+-     *
+-     * @since 1.1.0
+-     */
+-    private void addRandomKey(Object maskedKey) {
+-        // Add one in every three keys to the set. Only do this when
+-        // there are less than 16 elements in the random key set; this
+-        // means that the algorithm will be pseudo-random for up to
+-        // 16 removes (either via removeRandom() or normal remove()
+-        // calls) that have no intervening put() calls.
+-        if (random != null && randomKeys.size() < 16 && random.nextInt(10) < 3)
+-            randomKeys.add(maskedKey);
+-    }
+-
+-    @Override
+-    public Object get(Object key) {
+-        return unmaskNull(super.get(maskNull(key)));
+-    }
+-
+-    @Override
+-    public boolean containsKey(Object key) {
+-        return super.containsKey(maskNull(key));
+-    }
+-
+-    @Override
+-    public boolean containsValue(Object value) {
+-        return super.containsValue(maskNull(value));
+-    }
+-
+-    @Override
+-    public boolean contains(Object value) {
+-        throw new UnsupportedOperationException();
+-    }
+-
+-    @Override
+-    public Enumeration elements() {
+-        throw new UnsupportedOperationException();
+-    }
+-
+-    @Override
+-    public Set entrySet() {
+-        return new TranslatingSet(super.entrySet()) {
+-            protected Object unmask(Object internal) {
+-                final Entry e = (Entry) internal;
+-                return new Entry() {
+-
+-                    public Object getKey() {
+-                        return unmaskNull(e.getKey());
+-                    }
+-
+-                    public Object getValue() {
+-                        return unmaskNull(e.getValue());
+-                    }
+-
+-                    public Object setValue(Object value) {
+-                        return unmaskNull(e.setValue(maskNull(value)));
+-                    }
+-
+-                    @Override
+-                    public int hashCode() {
+-                        return e.hashCode();
+-                    }
+-                };
+-            }
+-        };
+-    }
+-
+-    @Override
+-    public Enumeration keys() {
+-        throw new UnsupportedOperationException();
+-    }
+-
+-    @Override
+-    public Set keySet() {
+-        return new TranslatingSet(super.keySet()) {
+-            protected Object unmask(Object internal) {
+-                return unmaskNull(internal);
+-            }
+-        };
+-    }
+-
+-    @Override
+-    public Collection values() {
+-        return new TranslatingCollection(super.values()) {
+-
+-            protected Object unmask(Object internal) {
+-                return unmaskNull(internal);
+-            }
+-        };
+-    }
+-
+-    private abstract class TranslatingSet extends AbstractSet {
+-
+-        private Set backingSet;
+-
+-        private TranslatingSet(Set backing) {
+-            this.backingSet = backing;
+-        }
+-
+-        protected abstract Object unmask(Object internal);
+-
+-        public Iterator iterator() {
+-            final Iterator iterator = backingSet.iterator();
+-            return new Iterator() {
+-                public boolean hasNext() {
+-                    return iterator.hasNext();
+-                }
+-
+-                public Object next() {
+-                    return unmask(iterator.next());
+-                }
+-
+-                public void remove() {
+-                    iterator.remove();
+-                }
+-            };
+-        }
+-
+-        public int size() {
+-            return backingSet.size();
+-        }
+-    }
+-
+-    private abstract class TranslatingCollection extends AbstractCollection {
+-
+-        private Collection backingCollection;
+-
+-        private TranslatingCollection(Collection backing) {
+-            this.backingCollection = backing;
+-        }
+-
+-        protected abstract Object unmask(Object internal);
+-
+-        public Iterator iterator() {
+-            final Iterator iterator = backingCollection.iterator();
+-            return new Iterator() {
+-                public boolean hasNext() {
+-                    return iterator.hasNext();
+-                }
+-
+-                public Object next() {
+-                    return unmask(iterator.next());
+-                }
+-
+-                public void remove() {
+-                    iterator.remove();
+-                }
+-            };
+-        }
+-
+-        public int size() {
+-            return backingCollection.size();
+-        }
+-    }
+-
+-    private class EntryImpl implements Entry {
+-
+-        final Object key;
+-        final Object val;
+-
+-        private EntryImpl(Object key, Object val) {
+-            this.key = key;
+-            this.val = val;
+-        }
+-
+-        public Object getKey() {
+-            return key;
+-        }
+-
+-        public Object getValue() {
+-            return val;
+-        }
+-
+-        public Object setValue(Object value) {
+-            throw new UnsupportedOperationException();
+-        }
+-    }
+-
+-    public interface KeyFilter {
+-
+-        /**
+-         * @param key may be null
+-         * @return whether or not <code>key</code> shuold be excluded
+-         */
+-        public boolean exclude(Object key);
+-    }
+-}
+diff -Nru apache-openjpa-2.2.2-source/openjpa-lib/src/main/java/org/apache/openjpa/lib/util/concurrent/SizedConcurrentHashMap.java apache-openjpa-2.2.2-source-gil/openjpa-lib/src/main/java/org/apache/openjpa/lib/util/concurrent/SizedConcurrentHashMap.java
+--- apache-openjpa-2.2.2-source/openjpa-lib/src/main/java/org/apache/openjpa/lib/util/concurrent/SizedConcurrentHashMap.java	2013-04-16 17:03:58.000000000 +0200
++++ apache-openjpa-2.2.2-source-gil/openjpa-lib/src/main/java/org/apache/openjpa/lib/util/concurrent/SizedConcurrentHashMap.java	1970-01-01 01:00:00.000000000 +0100
+@@ -1,128 +0,0 @@
+-/*
+- * Licensed to the Apache Software Foundation (ASF) under one
+- * or more contributor license agreements.  See the NOTICE file
+- * distributed with this work for additional information
+- * regarding copyright ownership.  The ASF licenses this file
+- * to you under the Apache License, Version 2.0 (the
+- * "License"); you may not use this file except in compliance
+- * with the License.  You may obtain a copy of the License at
+- *
+- * http://www.apache.org/licenses/LICENSE-2.0
+- *
+- * Unless required by applicable law or agreed to in writing,
+- * software distributed under the License is distributed on an
+- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+- * KIND, either express or implied.  See the License for the
+- * specific language governing permissions and limitations
+- * under the License.
+- */
+-package org.apache.openjpa.lib.util.concurrent;
+-
+-import java.util.concurrent.ConcurrentHashMap;
+-import java.util.Map;
+-import java.util.Iterator;
+-import java.util.Set;
+-import java.io.ObjectOutputStream;
+-import java.io.IOException;
+-import java.io.ObjectInputStream;
+-import java.io.Serializable;
+-
+-import org.apache.openjpa.lib.util.SizedMap;
+-
+-/**
+- * An implementation of {@link SizedMap} that uses JDK1.5 concurrency primitives
+- *
+- * @since 1.1.0
+- */
+-public class SizedConcurrentHashMap
+-    extends NullSafeConcurrentHashMap
+-    implements SizedMap, ConcurrentMap, Serializable {
+-
+-    private int maxSize;
+-
+-    /**
+-     * @param size the maximum size of this map. If additional elements are
+-     * put into the map, overflow will be removed via calls to
+-     * {@link #overflowRemoved}.
+-     * @param load the load factor for the underlying map
+-     * @param concurrencyLevel the concurrency level for the underlying map
+-     *
+-     * @see ConcurrentHashMap
+-     */
+-    public SizedConcurrentHashMap(int size, float load, int concurrencyLevel) {
+-        super(size, load, concurrencyLevel);
+-        setMaxSize(size);
+-    }
+-
+-    @Override
+-    public Object putIfAbsent(Object key, Object value) {
+-        if (maxSize != Integer.MAX_VALUE)
+-            removeOverflow(true);
+-        return super.putIfAbsent(key, value);
+-    }
+-
+-    @Override
+-    public Object put(Object key, Object value) {
+-        if (maxSize != Integer.MAX_VALUE)
+-            removeOverflow(true);
+-        return super.put(key, value);
+-    }
+-
+-    public int getMaxSize() {
+-        return maxSize;
+-    }
+-
+-    public void setMaxSize(int max) {
+-        if (max < 0)
+-            throw new IllegalArgumentException(String.valueOf(max));
+-        maxSize = max;
+-
+-        removeOverflow(false);
+-    }
+-
+-    /**
+-     * Equivalent to <code>removeOverflow(false)</code>.
+-     */
+-    protected void removeOverflow() {
+-        removeOverflow(false);
+-    }
+-
+-    /**
+-     * Removes overflow. If <code>forPut</code> is <code>true</code>, then
+-     * this uses <code>size() + 1</code> when computing size.
+-     */
+-    protected void removeOverflow(boolean forPut) {
+-        int sizeToCompareTo = forPut ? maxSize - 1 : maxSize;
+-        while (size() > sizeToCompareTo) {
+-            Entry entry = removeRandom();
+-            // if removeRandom() returns null, break out of the loop. Of course,
+-            // since we're not locking, the size might not actually be null
+-            // when we do this. But this prevents weird race conditions from
+-            // putting this thread into more loops.
+-            if (entry == null)
+-                break;
+-            overflowRemoved(entry.getKey(), entry.getValue());
+-        }
+-    }
+-
+-    public boolean isFull() {
+-        return size() >= maxSize;
+-    }
+-
+-    /**
+-     * This implementation does nothing.
+-     */
+-    public void overflowRemoved(Object key, Object value) {
+-    }
+-
+-    private void writeObject(ObjectOutputStream out) throws IOException {
+-        out.defaultWriteObject();
+-        out.writeInt(maxSize);
+-    }
+-
+-    private void readObject(ObjectInputStream in)
+-        throws IOException, ClassNotFoundException {
+-        in.defaultReadObject();
+-        maxSize = in.readInt();
+-    }
+-}
+diff -Nru apache-openjpa-2.2.2-source/openjpa-lib/src/test/java/org/apache/openjpa/lib/util/concurrent/TestConcurrentMap.java apache-openjpa-2.2.2-source-gil/openjpa-lib/src/test/java/org/apache/openjpa/lib/util/concurrent/TestConcurrentMap.java
+--- apache-openjpa-2.2.2-source/openjpa-lib/src/test/java/org/apache/openjpa/lib/util/concurrent/TestConcurrentMap.java	2013-04-16 17:03:56.000000000 +0200
++++ apache-openjpa-2.2.2-source-gil/openjpa-lib/src/test/java/org/apache/openjpa/lib/util/concurrent/TestConcurrentMap.java	1970-01-01 01:00:00.000000000 +0100
+@@ -1,150 +0,0 @@
+-/*
+- * Licensed to the Apache Software Foundation (ASF) under one
+- * or more contributor license agreements.  See the NOTICE file
+- * distributed with this work for additional information
+- * regarding copyright ownership.  The ASF licenses this file
+- * to you under the Apache License, Version 2.0 (the
+- * "License"); you may not use this file except in compliance
+- * with the License.  You may obtain a copy of the License at
+- *
+- * http://www.apache.org/licenses/LICENSE-2.0
+- *
+- * Unless required by applicable law or agreed to in writing,
+- * software distributed under the License is distributed on an
+- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+- * KIND, either express or implied.  See the License for the
+- * specific language governing permissions and limitations
+- * under the License.    
+- */
+-package org.apache.openjpa.lib.util.concurrent;
+-
+-import java.util.ArrayList;
+-import java.util.Collections;
+-import java.util.Iterator;
+-import java.util.List;
+-import java.util.Map;
+-import java.util.Set;
+-import java.util.TreeSet;
+-import java.io.IOException;
+-
+-import org.apache.openjpa.lib.util.ReferenceMap;
+-import org.apache.openjpa.lib.test.AbstractTestCase;
+-
+-/**
+- * Tests the methods of {@link ConcurrentMap}.
+- *
+- * @author Abe White
+- */
+-public class TestConcurrentMap extends AbstractTestCase {
+-
+-    private static final int ENTRIES = 333;
+-    private static final int SLEEP = 3;
+-
+-    private ConcurrentMap[] _maps = new ConcurrentMap[]{
+-        new SizedConcurrentHashMap(ENTRIES, .75f, 16), 
+-        new ConcurrentReferenceHashMap(ReferenceMap.HARD, ReferenceMap.HARD), };
+-
+-    public void setUp() throws Exception {
+-        super.setUp();
+-        for (int i = 0; i < ENTRIES; i++) {
+-            for (int j = 0; j < _maps.length; j++) {
+-                int key = j * ENTRIES + i;
+-                _maps[j].put(new Integer(key), "v" + key);
+-            }
+-        }
+-        for (int i = 0; i < _maps.length; i++)
+-            assertEquals(ENTRIES, _maps[i].size());
+-    }
+-
+-    public void testRemoveRandom() {
+-        Set keys = new TreeSet();
+-        for (int i = 0; i < ENTRIES; i++)
+-            for (int j = 0; j < _maps.length; j++)
+-                assertTrue(removeRandom(_maps[j], keys));
+-        postRemoveTest(keys);
+-    }
+-
+-    private static boolean removeRandom(ConcurrentMap map, Set keys) {
+-        Map.Entry rem = map.removeRandom();
+-        return rem != null && rem.getValue().equals("v" + rem.getKey())
+-            && keys.add(rem.getKey());
+-    }
+-
+-    private void postRemoveTest(Set keys) {
+-        for (int i = 0; i < _maps.length; i++) {
+-            assertTrue(_maps[i].isEmpty());
+-            assertTrue(!_maps[i].containsKey(new Integer(ENTRIES * i + i)));
+-        }
+-        assertEquals(keys.toString(), ENTRIES * _maps.length, keys.size());
+-    }
+-
+-    public synchronized void testRemoveRandomThreaded()
+-        throws InterruptedException {
+-        Set keys = Collections.synchronizedSet(new TreeSet());
+-        RemoveRandomRunnable[] runs =
+-            new RemoveRandomRunnable[ENTRIES * _maps.length];
+-        for (int i = 0; i < ENTRIES; i++)
+-            for (int j = 0; j < _maps.length; j++)
+-                runs[j * ENTRIES + i] = new RemoveRandomRunnable
+-                    (_maps[j], keys);
+-        for (int i = 0; i < runs.length; i++)
+-            new Thread(runs[i]).start();
+-        Thread.currentThread().sleep(SLEEP * ENTRIES * _maps.length);
+-        for (int i = 0; i < runs.length; i++) {
+-            assertTrue(String.valueOf(i), !runs[i].error);
+-            if (runs[i].interrupted)
+-                throw new InterruptedException(String.valueOf(i));
+-        }
+-        postRemoveTest(keys);
+-    }
+-
+-    public void testIterate() {
+-        iterationTest(false);
+-    }
+-
+-    private List iterationTest(boolean random) {
+-        Set keys = new TreeSet();
+-        List ordered = new ArrayList(200);
+-        for (int i = 0; i < _maps.length; i++) {
+-            Iterator itr = (random) ? _maps[i].randomEntryIterator()
+-                : _maps[i].entrySet().iterator();
+-            while (itr.hasNext()) {
+-                Map.Entry entry = (Map.Entry) itr.next();
+-                assertEquals("v" + entry.getKey(), entry.getValue());
+-                assertTrue(keys + ":: " + _maps[i].getClass() + "::"
+-                    + entry.getKey() + "::" + entry.getValue(),
+-                    keys.add(entry.getKey()));
+-                ordered.add(entry.getKey());
+-            }
+-        }
+-        assertEquals(keys.toString(), ENTRIES * _maps.length, keys.size());
+-        return ordered;
+-    }
+-
+-    public void testRandomIterate() {
+-        iterationTest(true);
+-    }
+-
+-    private static class RemoveRandomRunnable implements Runnable {
+-
+-        public boolean error = false;
+-        public boolean interrupted = false;
+-
+-        private final ConcurrentMap _map;
+-        private final Set _keys;
+-
+-        public RemoveRandomRunnable(ConcurrentMap map, Set keys) {
+-            _map = map;
+-            _keys = keys;
+-        }
+-
+-        public synchronized void run() {
+-            try {
+-                Thread.currentThread().sleep((long) (Math.random() * SLEEP));
+-            } catch (InterruptedException ie) {
+-                interrupted = true;
+-            }
+-            error = !removeRandom(_map, _keys);
+-        }
+-    }
+-}
+diff -Nru apache-openjpa-2.2.2-source/openjpa-lib/src/test/java/org/apache/openjpa/lib/util/concurrent/TestNullSafeConcurrentHashMap.java apache-openjpa-2.2.2-source-gil/openjpa-lib/src/test/java/org/apache/openjpa/lib/util/concurrent/TestNullSafeConcurrentHashMap.java
+--- apache-openjpa-2.2.2-source/openjpa-lib/src/test/java/org/apache/openjpa/lib/util/concurrent/TestNullSafeConcurrentHashMap.java	2013-04-16 17:03:56.000000000 +0200
++++ apache-openjpa-2.2.2-source-gil/openjpa-lib/src/test/java/org/apache/openjpa/lib/util/concurrent/TestNullSafeConcurrentHashMap.java	1970-01-01 01:00:00.000000000 +0100
+@@ -1,179 +0,0 @@
+-/*
+- * Licensed to the Apache Software Foundation (ASF) under one
+- * or more contributor license agreements.  See the NOTICE file
+- * distributed with this work for additional information
+- * regarding copyright ownership.  The ASF licenses this file
+- * to you under the Apache License, Version 2.0 (the
+- * "License"); you may not use this file except in compliance
+- * with the License.  You may obtain a copy of the License at
+- *
+- * http://www.apache.org/licenses/LICENSE-2.0
+- *
+- * Unless required by applicable law or agreed to in writing,
+- * software distributed under the License is distributed on an
+- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+- * KIND, either express or implied.  See the License for the
+- * specific language governing permissions and limitations
+- * under the License.
+- */
+-package org.apache.openjpa.lib.util.concurrent;
+-
+-import java.io.IOException;
+-import java.util.Set;
+-import java.util.Collection;
+-import java.util.Map;
+-import java.util.HashMap;
+-import java.util.Map.Entry;
+-
+-import org.apache.openjpa.lib.test.AbstractTestCase;
+-
+-public class TestNullSafeConcurrentHashMap extends AbstractTestCase {
+-
+-    private NullSafeConcurrentHashMap newMap() {
+-        return new NullSafeConcurrentHashMap();
+-    }
+-
+-    public void testRemoveRandomIsNotTotallyDeterministic() {
+-        removeHelper(false);
+-    }
+-
+-    public void testRandomIteratorIsNotTotallyDeterministic() {
+-        removeHelper(true);
+-    }
+-
+-    private void removeHelper(boolean iter) {
+-        Map<String,Integer> removedCounts = new HashMap();
+-        for (int i = 0; i < 1000; i++) {
+-            NullSafeConcurrentHashMap m = new NullSafeConcurrentHashMap();
+-            m.put("a", "A");
+-            m.put("b", "B");
+-            m.put("c", "C");
+-            m.put("d", "D");
+-            m.put("e", "E");
+-            m.put("f", "F");
+-            m.put("g", "G");
+-
+-            String removed;
+-            if (iter) {
+-                removed = (String) m.removeRandom().getKey();
+-            } else {
+-                removed = (String) ((Entry) m.randomEntryIterator().next())
+-                    .getKey();
+-                m.remove(removed);
+-            }
+-
+-            Integer count = removedCounts.get(removed);
+-            if (count == null)
+-                removedCounts.put(removed, 1);
+-            else
+-                removedCounts.put(removed, count.intValue() + 1);
+-        }
+-
+-        // assume that over 1000 runs, every element should be removed at
+-        // least once, and no element should be removed more than 30% of
+-        // the time
+-        assertEquals(7, removedCounts.size());
+-        for (Entry<String,Integer> entry : removedCounts.entrySet()) {
+-            if (entry.getValue() == 0)
+-                fail("element " + entry.getKey() + " was never removed");
+-            if (entry.getValue() > 500)
+-                fail("element " + entry.getKey() + " was removed "
+-                    + entry.getValue() + " times; this is greater than the "
+-                    + "threshold of 500.");
+-        }
+-    }
+-
+-    public void testNullKeys() throws ClassNotFoundException, IOException {
+-        helper(null, "value 0", "value 1", "value 2");
+-    }
+-
+-    private void helper(Object key, Object value0,
+-        Object value1, Object value2)
+-        throws IOException, ClassNotFoundException {
+-
+-        NullSafeConcurrentHashMap m = newMap();
+-
+-        // initial put
+-        m.put(key, value0);
+-
+-        // get etc.
+-        assertEquals(value0, m.get(key));
+-        assertTrue(m.containsKey(key));
+-        assertTrue(m.containsValue(value0));
+-
+-        // keySet
+-        Set keys = m.keySet();
+-        assertTrue(keys.contains(key));
+-        assertEquals(1, keys.size());
+-        assertEquals(key, keys.iterator().next());
+-
+-        // entrySet
+-        Set entries = m.entrySet();
+-        Entry e = (Entry) entries.iterator().next();
+-        assertEquals(key, e.getKey());
+-        assertEquals(value0, e.getValue());
+-
+-        // values
+-        Collection values = m.values();
+-        assertEquals(1, values.size());
+-        assertEquals(value0, values.iterator().next());
+-
+-        // serializability
+-        assertEquals(m, roundtrip(m, true));
+-
+-        // put
+-        assertEquals(value0, m.put(key, value1));
+-
+-        // remove
+-        assertEquals(value1, m.put(key, value1));
+-        assertEquals(value1, m.remove(key));
+-        m.put(key, value1);
+-
+-        // ConcurrentMap stuff
+-        assertFalse(m.remove("invalid key", value0));
+-        assertTrue(m.remove(key, value1));
+-        assertNull(m.putIfAbsent(key, value0)); // null == prev unset
+-
+-        // value0 might be null; can't disambiguate from above in OpenJPA
+-        // interpretation
+-        assertEquals(value0, m.putIfAbsent(key, "invalid value"));
+-
+-        // replace
+-        assertEquals(value0, m.replace(key, value1));
+-        assertTrue(m.replace(key, value1, value2));
+-
+-        // putAll. Note that ConcurrentHashMap happens to delegate to put()
+-        // from within putAll() calls. This test should help ensure that we
+-        // find out if that changes.
+-        m = newMap();
+-        Map putAllArg = new HashMap();
+-        putAllArg.put(key, value0);
+-        putAllArg.put("another key", value1);
+-        m.putAll(putAllArg);
+-        assertEquals(value0, m.get(key));
+-        assertEquals(value1, m.get("another key"));
+-    }
+-
+-    public void testNullValues() throws ClassNotFoundException, IOException {
+-        nullValsHelper("foo");
+-    }
+-
+-    private void nullValsHelper(Object key)
+-        throws IOException, ClassNotFoundException {
+-        helper(key, null, null, null);
+-        helper(key, "bar", "baz", "quux");
+-
+-        helper(key, "bar", "baz", null);
+-        helper(key, null, "baz", "quux");
+-        helper(key, "bar", null, "quux");
+-
+-        helper(key, "bar", null, null);
+-        helper(key, null, "baz", null);
+-        helper(key, null, null, "quux");
+-    }
+-
+-    public void testNullKeysAndValues()
+-        throws ClassNotFoundException, IOException {
+-        nullValsHelper(null);
+-    }
+-}
