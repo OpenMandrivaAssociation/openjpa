@@ -4,7 +4,7 @@
 
 Name:          openjpa
 Version:       2.2.2
-Release:       9.1
+Release:       9.2
 Summary:       Java Persistence 2.0 API
 
 # For a breakdown of the licensing, see NOTICE file
