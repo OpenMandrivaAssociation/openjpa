@@ -4,25 +4,22 @@
 
 Name:          openjpa
 Version:       2.2.2
-Release:       9.1
+Release:       10.1
 Summary:       Java Persistence 2.0 API
-
 # For a breakdown of the licensing, see NOTICE file
+Group:         Development/Java
 License:       ASL 2.0 and CDDL
 Url:           http://openjpa.apache.org/
 Source0:       http://www.apache.org/dist/openjpa/%{version}/apache-%{name}-%{version}-source.zip
 # fix test failure
 Patch0:        %{name}-2.2.0-persistence-jdbc-DynamicEnhancementSuite.patch
+# Thanks to Robert Rati
 Patch1:        %{name}-2.2.0-remove-WASRegistryManagedRuntime.patch
 # Java 8 problems, see:
 # https://issues.apache.org/jira/browse/OPENJPA-2386
 # https://issues.apache.org/jira/browse/OPENJPA-2441
 Patch2:        %{name}-2.2.2-java8.patch
-
-%if 0%{?fedora}
-%else
-BuildRequires: jmock
-%endif
+Patch3:	       openjpa-2.2.2-java8-2.patch
 
 BuildRequires: apache-rat-plugin
 BuildRequires: buildnumber-maven-plugin
@@ -38,7 +35,6 @@ BuildRequires: maven-site-plugin
 BuildRequires: maven-surefire-provider-junit
 BuildRequires: mvn(org.apache.maven.wagon:wagon-providers:pom:)
 BuildRequires: mvn(org.apache.maven.wagon:wagon-ssh)
-
 
 # maven-antrun-plugin deps
 BuildRequires: ant-contrib
@@ -83,7 +79,7 @@ BuildRequires: regexp
 BuildRequires: simple-jndi
 
 # used by openjpa-maven-plugin and openjpa-lib
-Requires: log4j12
+Requires:      log4j12
 
 BuildArch:     noarch
 
@@ -109,13 +105,14 @@ Summary:       Javadoc for %{name}
 This package contains javadoc for %{name}.
 
 %prep
-%setup -q -n apache-openjpa-%{version}-source
+%setup -q -n apache-%{name}-%{version}-source
 find . -name "*.class" -delete
 find . -name "*.jar" -delete
 # openjpa-kernel/internal-repository/com/ibm/websphere/websphere_uow_api/0.0.1/websphere_uow_api-0.0.1.jar
 %patch0 -p0
 %patch1 -p1
 %patch2 -p1
+%patch3 -p1
 
 %pom_remove_plugin :docbkx-maven-plugin
 %pom_remove_plugin :maven-checkstyle-plugin
@@ -137,7 +134,6 @@ find . -name "*.jar" -delete
     <version>1.0.1.Final</version>
   </dependency>"
 %pom_remove_dep org.apache.bval:org.apache.bval.bundle
-%if 0%{?fedora}
 %pom_xpath_inject "pom:project/pom:dependencyManagement/pom:dependencies" "
   <dependency>
     <groupId>org.apache.bval</groupId>
@@ -149,37 +145,29 @@ find . -name "*.jar" -delete
     <artifactId>bval-jsr303</artifactId>
     <version>0.5</version>
   </dependency>"
-%else
-%pom_xpath_inject "pom:project/pom:dependencyManagement/pom:dependencies" "
-  <dependency>
-    <groupId>org.apache.bval</groupId>
-    <artifactId>bval-core</artifactId>
-    <version>0.5</version>
-  </dependency>"
-%endif
 
 %pom_remove_dep com.ibm.websphere:websphere_uow_api openjpa-kernel
 # require non free com.ibm.websphere websphere_uow_api 0.0.1
 rm openjpa-kernel/src/main/java/org/apache/openjpa/ee/WASRegistryManagedRuntime.java
 
 for p in kernel persistence; do
-%pom_remove_dep org.osgi:org.osgi.core openjpa-${p}
+%pom_remove_dep org.osgi:org.osgi.core %{name}-${p}
 %pom_xpath_inject "pom:project/pom:dependencies" "
   <dependency>
     <groupId>org.apache.felix</groupId>
     <artifactId>org.osgi.core</artifactId>
     <version>1.4.0</version>
     <scope>provided</scope>
-  </dependency>" openjpa-${p}
+  </dependency>" %{name}-${p}
 done
 
-for p in openjpa-jest \
-  openjpa-persistence \
-  openjpa-tools/openjpa-maven-plugin \
-  openjpa-tools/openjpa-maven-plugin/src/it/default_settings \
-  openjpa-tools/openjpa-maven-plugin/src/it/dependingArtifact \
-  openjpa-tools/openjpa-maven-plugin/src/it/nonDefaultPersistenceXml \
-  openjpa-tools/openjpa-maven-plugin/src/it/testDependencies \
+for p in %{name}-jest \
+  %{name}-persistence \
+  %{name}-tools/%{name}-maven-plugin \
+  %{name}-tools/%{name}-maven-plugin/src/it/default_settings \
+  %{name}-tools/%{name}-maven-plugin/src/it/dependingArtifact \
+  %{name}-tools/%{name}-maven-plugin/src/it/nonDefaultPersistenceXml \
+  %{name}-tools/%{name}-maven-plugin/src/it/testDependencies \
   ; do
 %pom_remove_dep org.apache.geronimo.specs:geronimo-jpa_2.0_spec ${p}
 %pom_xpath_inject "pom:project/pom:dependencies" "
@@ -190,17 +178,16 @@ for p in openjpa-jest \
   </dependency>" ${p}
 done
 
-%pom_remove_dep org.apache.geronimo.specs:geronimo-jpa_2.0_spec openjpa-slice
+%pom_remove_dep org.apache.geronimo.specs:geronimo-jpa_2.0_spec %{name}-slice
 %pom_xpath_inject "pom:project/pom:dependencies" "
   <dependency>
     <groupId>org.hibernate.javax.persistence</groupId>
     <artifactId>hibernate-jpa-2.0-api</artifactId>
     <version>1.0.1.Final</version>
     <scope>test</scope>
-  </dependency>" openjpa-slice
+  </dependency>" %{name}-slice
 
-%pom_remove_dep org.apache.bval:org.apache.bval.bundle openjpa-tools/openjpa-maven-plugin
-%if 0%{?fedora}
+%pom_remove_dep org.apache.bval:org.apache.bval.bundle %{name}-tools/%{name}-maven-plugin
 %pom_xpath_inject "pom:project/pom:dependencies" "
   <dependency>
     <groupId>org.apache.bval</groupId>
@@ -211,22 +198,14 @@ done
     <groupId>org.apache.bval</groupId>
     <artifactId>bval-jsr303</artifactId>
     <version>0.5</version>
-  </dependency>" openjpa-tools/openjpa-maven-plugin
-%else
-%pom_xpath_inject "pom:project/pom:dependencies" "
-  <dependency>
-    <groupId>org.apache.bval</groupId>
-    <artifactId>bval-core</artifactId>
-    <version>0.5</version>
-  </dependency>" openjpa-tools/openjpa-maven-plugin
-%endif
+  </dependency>" %{name}-tools/%{name}-maven-plugin
   
 # remove testing profiles for unavailable drivers: 
 # db2jcc informix-driver jcc-driver jdbc-driver jdbc-oracle jtds sqljdbc
 #%%pom_xpath_remove "pom:profiles/pom:profile[pom:id='test-mysql']" openjpa-persistence-jdbc
 %pom_xpath_remove "pom:project/pom:profiles/pom:profile[pom:id='test-sybase-jconnect']" openjpa-persistence-jdbc
 %pom_xpath_remove "pom:project/pom:profiles/pom:profile[pom:id='test-soliddb']" openjpa-persistence-jdbc
-for p in openjpa-persistence-jdbc openjpa-persistence-locking; do
+for p in %{name}-persistence-jdbc %{name}-persistence-locking; do
 %pom_xpath_remove "pom:project/pom:profiles/pom:profile[pom:id='test-custom']" ${p}
 %pom_xpath_remove "pom:project/pom:profiles/pom:profile[pom:id='test-custom2']" ${p}
 %pom_xpath_remove "pom:project/pom:profiles/pom:profile[pom:id='test-db2-jcc']" ${p}
@@ -244,18 +223,18 @@ done
 #%%pom_remove_plugin org.codehaus.mojo:buildnumber-maven-plugin
 
 
-%pom_disable_module openjpa
-%pom_disable_module openjpa-all
-%pom_disable_module openjpa-examples
-%pom_disable_module openjpa-integration
-%pom_disable_module openjpa-project
-%pom_disable_module openbooks openjpa-examples
+%pom_disable_module %{name}
+%pom_disable_module %{name}-all
+%pom_disable_module %{name}-examples
+%pom_disable_module %{name}-integration
+%pom_disable_module %{name}-project
+%pom_disable_module openbooks %{name}-examples
 
 # break build in f19
-%pom_remove_plugin :maven-invoker-plugin openjpa-tools/openjpa-maven-plugin
+%pom_remove_plugin :maven-invoker-plugin %{name}-tools/%{name}-maven-plugin
 
 %pom_xpath_inject "pom:project/pom:dependencies/pom:dependency[pom:artifactId='hsqldb']" "
-<version>1</version>" openjpa-jdbc
+<version>1</version>" %{name}-jdbc
 
 sed -i 's|<hsqldb.version>1.8.0.10</hsqldb.version>|<hsqldb.version>1</hsqldb.version>|' pom.xml
 
@@ -265,7 +244,7 @@ sed -i 's|<hsqldb.version>1.8.0.10</hsqldb.version>|<hsqldb.version>1</hsqldb.ve
 %pom_xpath_set "pom:project/pom:dependencies/pom:dependency[pom:groupId='asm']/pom:version" 3 %{name}-kernel
 
 # use proper log4j version
-%pom_xpath_set "pom:dependencyManagement/pom:dependencies/pom:dependency[pom:groupId='log4j']/pom:version" 1.2.17
+%pom_xpath_set "pom:dependencyManagement/pom:dependencies/pom:dependency[pom:groupId='log4j']/pom:version" 1.2.17 
 %pom_xpath_set "pom:dependencies/pom:dependency[pom:groupId='log4j']/pom:version" 1.2.17 %{name}-tools/%{name}-maven-plugin
 %pom_xpath_inject "pom:dependencies/pom:dependency[pom:groupId='log4j']" "<version>1.2.17</version>" %{name}-lib
 # use servlet-api 2.4
@@ -307,6 +286,19 @@ install -p -m 644 %{name}-ant %{buildroot}%{_sysconfdir}/ant.d/%{name}
 %doc LICENSE NOTICE
 
 %changelog
+* Wed Oct 08 2014 gil cattaneo <puntogil@libero.it> 2.2.2-9
+- build fix for Java 8
+
+* Sat Jun 07 2014 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 2.2.2-8
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_21_Mass_Rebuild
+
+* Thu Feb 27 2014 gil cattaneo <puntogil@libero.it> 2.2.2-7
+- switch to java-headless (build)requires (rhbz#1068461)
+- remove websphere references
+
+* Mon Nov 18 2013 gil cattaneo <puntogil@libero.it> 2.2.2-6
+- use objectweb-asm3
+
 * Sat Aug 03 2013 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 2.2.2-5
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_20_Mass_Rebuild
 

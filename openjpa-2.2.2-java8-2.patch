@@ -1,0 +1,47 @@
+diff --git a/openjpa-persistence-jdbc/src/main/java/org/apache/openjpa/persistence/jdbc/AnnotationPersistenceMappingParser.java b/openjpa-persistence-jdbc/src/main/java/org/apache/openjpa/persistence/jdbc/AnnotationPersistenceMappingParser.java
+index 17939e9..2ff8073 100644
+--- a/openjpa-persistence-jdbc/src/main/java/org/apache/openjpa/persistence/jdbc/AnnotationPersistenceMappingParser.java
++++ b/openjpa-persistence-jdbc/src/main/java/org/apache/openjpa/persistence/jdbc/AnnotationPersistenceMappingParser.java
+@@ -1578,7 +1578,7 @@ public class AnnotationPersistenceMappingParser
+             }
+             if (xmlRootElementClass != null
+                 && StringUtils.isEmpty(pcols[i].columnDefinition())
+-                && (AccessController.doPrivileged(J2DoPrivHelper
++                && ((Boolean) AccessController.doPrivileged(J2DoPrivHelper
+                     .isAnnotationPresentAction(fm.getDeclaredType(),
+                         xmlRootElementClass))).booleanValue()) {
+                 DBDictionary dict = ((MappingRepository) getRepository())
+diff --git a/openjpa-persistence/src/main/java/org/apache/openjpa/persistence/AnnotationPersistenceXMLMetaDataParser.java b/openjpa-persistence/src/main/java/org/apache/openjpa/persistence/AnnotationPersistenceXMLMetaDataParser.java
+index e838b70..20a630d 100644
+--- a/openjpa-persistence/src/main/java/org/apache/openjpa/persistence/AnnotationPersistenceXMLMetaDataParser.java
++++ b/openjpa-persistence/src/main/java/org/apache/openjpa/persistence/AnnotationPersistenceXMLMetaDataParser.java
+@@ -160,9 +160,9 @@ public class AnnotationPersistenceXMLMetaDataParser {
+     private XMLMetaData parseXMLClassAnnotations(Class<?> cls) {
+         // check immediately whether the class has JAXB XML annotations
+         if (cls == null || xmlTypeClass == null
+-            || !((AccessController.doPrivileged(J2DoPrivHelper
++            || !(((Boolean) AccessController.doPrivileged(J2DoPrivHelper
+                 .isAnnotationPresentAction(cls, xmlTypeClass))).booleanValue()
+-                && (AccessController
++                && ((Boolean) AccessController
+                 .doPrivileged(J2DoPrivHelper.isAnnotationPresentAction(cls,
+                     xmlRootElementClass))).booleanValue()))
+             return null;
+@@ -212,7 +212,7 @@ public class AnnotationPersistenceXMLMetaDataParser {
+         Class superclass = cls.getSuperclass();
+ 
+         // handle inheritance at sub-element level
+-        if ((AccessController.doPrivileged(J2DoPrivHelper
++        if (((Boolean) AccessController.doPrivileged(J2DoPrivHelper
+             .isAnnotationPresentAction(superclass, xmlTypeClass)))
+             .booleanValue())
+             populateFromReflection(superclass, meta);
+@@ -234,7 +234,7 @@ public class AnnotationPersistenceXMLMetaDataParser {
+                     // avoid JAXB XML bind default name
+                     if (StringUtils.equals(XMLMetaData.defaultName, xmlname))
+                         xmlname = member.getName();
+-                    if ((AccessController.doPrivileged(J2DoPrivHelper
++                    if (((Boolean) AccessController.doPrivileged(J2DoPrivHelper
+                         .isAnnotationPresentAction(((Field) member).getType(),
+                             xmlTypeClass))).booleanValue()) {
+                         field = _repos.addXMLClassMetaData(((Field) member).getType());
