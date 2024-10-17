@@ -9,7 +9,7 @@ Summary:       Java Persistence 2.0 API
 # For a breakdown of the licensing, see NOTICE file
 Group:         Development/Java
 License:       ASL 2.0 and CDDL
-Url:           http://openjpa.apache.org/
+Url:           https://openjpa.apache.org/
 Source0:       http://www.apache.org/dist/openjpa/%{version}/apache-%{name}-%{version}-source.zip
 # fix test failure
 Patch0:        %{name}-2.2.0-persistence-jdbc-DynamicEnhancementSuite.patch
